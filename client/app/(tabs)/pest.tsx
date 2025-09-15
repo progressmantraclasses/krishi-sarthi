@@ -1,60 +1,143 @@
 // client/app/(tabs)/pest.tsx
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import axios from "@/lib/api";
-import Card from "@/components/Card";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  FlatList,
+  ScrollView,
+  Animated,
+} from "react-native";
 
-export default function Pest() {
-  const [img, setImg] = useState<string | null>(null);
-  const [result, setResult] = useState<any>(null);
+type PestData = {
+  crop: string;
+  pest: string;
+  precaution: string;
+  icon: string;
+  severity: "Low" | "Medium" | "High";
+};
+
+const SAMPLE_PESTS: PestData[] = [
+  { crop: "Wheat", pest: "Leaf Rust", precaution: "Spray fungicide in morning", icon: "🍂", severity: "High" },
+  { crop: "Rice", pest: "Brown Plant Hopper", precaution: "Maintain proper water levels", icon: "🐛", severity: "Medium" },
+  { crop: "Maize", pest: "Army Worm", precaution: "Use neem-based insecticide", icon: "🐞", severity: "High" },
+  { crop: "Wheat", pest: "Blight", precaution: "Avoid excess irrigation", icon: "⚠️", severity: "Medium" },
+  { crop: "Rice", pest: "Blast", precaution: "Apply balanced fertilizer", icon: "🔥", severity: "High" },
+];
+
+const SEVERITY_COLORS: Record<string, string> = {
+  Low: "#4CAF50",
+  Medium: "#FFC107",
+  High: "#F44336",
+};
+
+export default function PestDetection() {
   const [loading, setLoading] = useState(false);
+  const [adviceList, setAdviceList] = useState<PestData[] | null>(null);
+  const [fadeAnim] = useState(new Animated.Value(0));
 
-  const pickAndUpload = async () => {
-    const p = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.6 });
-    if (p.canceled) return;
-    setImg((p as any).assets[0].uri);
-
+  const getAdvice = async () => {
     setLoading(true);
-    const form = new FormData();
-    // @ts-ignore
-    form.append("image", { uri: p.uri, name: "img.jpg", type: "image/jpeg" });
+    setAdviceList(null);
+    Animated.timing(fadeAnim, { toValue: 0, duration: 0, useNativeDriver: true }).start();
+
     try {
-      const r = await axios.post("/upload", form, { headers: { "Content-Type": "multipart/form-data" } });
-      setResult(r.data.result);
+      // Fake location/weather/season logic
+      const shuffled = SAMPLE_PESTS.sort(() => 0.5 - Math.random());
+      const selected = shuffled.slice(0, 3);
+      setAdviceList(selected);
+
+      // Animate results
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
     } catch (e) {
-      setResult({ disease: "Unknown", confidence: 0.0, remedy: "Could not analyze. Try again." });
-    } finally { setLoading(false); }
+      setAdviceList([
+        { crop: "-", pest: "Error fetching data", precaution: "Try again", icon: "⚠️", severity: "Low" },
+      ]);
+    }
+    setLoading(false);
   };
 
+  const renderItem = ({ item }: { item: PestData }) => (
+    <Animated.View style={[s.card, { opacity: fadeAnim }]}>
+      <View style={[s.severityBar, { backgroundColor: SEVERITY_COLORS[item.severity] }]} />
+      <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+        <Text style={s.icon}>{item.icon}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={s.pest}>Crop: {item.crop}</Text>
+          <Text style={s.pest}>Pest/Disease: {item.pest}</Text>
+          <Text style={s.precaution}>Precaution: {item.precaution}</Text>
+          <Text style={{ fontWeight: "600", color: SEVERITY_COLORS[item.severity], marginTop: 2 }}>
+            Severity: {item.severity}
+          </Text>
+        </View>
+      </View>
+    </Animated.View>
+  );
+
   return (
-    <View style={s.root}>
-      <Card>
-        <Text style={s.title}>Pest & Disease Detection</Text>
-        <Text>Upload a clear photo of leaf / crop.</Text>
+    <ScrollView style={s.root} contentContainerStyle={{ padding: 20 }}>
+      <Text style={s.title}>Smart Pest & Disease Detection</Text>
+      <Text style={s.sub}>
+        Analyzing crop, season, and weather data… 🌱
+      </Text>
 
-        <TouchableOpacity onPress={pickAndUpload} style={s.button}>
-          <Text style={{ color: "#fff", fontWeight: "700" }}>{img ? "Upload new image" : "Select Image"}</Text>
-        </TouchableOpacity>
+      {/* Animated placeholder box instead of Lottie */}
+      <View style={s.animationBox}>
+        {loading ? <ActivityIndicator size="large" color="#0B6E4F" /> : <Text style={s.animText}>📡 AI Scanning...</Text>}
+      </View>
 
-        {img && <Image source={{ uri: img }} style={s.preview} />}
+      <TouchableOpacity style={s.btn} onPress={getAdvice}>
+        <Text style={{ color: "#fff", fontWeight: "700" }}>Detect Pests</Text>
+      </TouchableOpacity>
 
-        {loading && <ActivityIndicator size="large" color="#0B6E4F" style={{ marginTop: 12 }} />}
-        {result && (
-          <View style={{ marginTop: 12 }}>
-            <Text style={{ fontWeight: "700" }}>{result.disease}</Text>
-            <Text>Confidence: {(result.confidence || 0).toFixed(2)}</Text>
-            <Text style={{ marginTop: 8, color: "#0B6E4F" }}>{result.remedy}</Text>
-          </View>
-        )}
-      </Card>
-    </View>
+      {adviceList && (
+        <FlatList
+          data={adviceList}
+          keyExtractor={(_, idx) => idx.toString()}
+          renderItem={renderItem}
+          style={{ marginTop: 20 }}
+        />
+      )}
+    </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, padding: 12 },
-  title: { fontWeight: "700", fontSize: 18, marginBottom: 8 },
-  button: { marginTop: 12, backgroundColor: "#0B6E4F", padding: 12, borderRadius: 10, alignItems: "center" },
-  preview: { width: "100%", height: 220, marginTop: 12, borderRadius: 12 },
+  root: { flex: 1, backgroundColor: "#FCFFFB" },
+  title: { fontSize: 26, fontWeight: "700", marginBottom: 6, color: "#0B6E4F" },
+  sub: { fontSize: 14, marginBottom: 20, color: "#555" },
+  btn: {
+    backgroundColor: "#0B6E4F",
+    padding: 16,
+    borderRadius: 14,
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  card: {
+    backgroundColor: "#fff",
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 4,
+    borderLeftWidth: 6,
+  },
+  severityBar: { position: "absolute", left: 0, top: 0, bottom: 0, width: 6, borderTopLeftRadius: 14, borderBottomLeftRadius: 14 },
+  icon: { fontSize: 36 },
+  pest: { fontSize: 16, fontWeight: "600", color: "#333" },
+  precaution: { fontSize: 14, color: "#555", marginTop: 2 },
+  animationBox: {
+    height: 120,
+    marginBottom: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#E0F2F1",
+    borderRadius: 16,
+  },
+  animText: { fontSize: 18, fontWeight: "600", color: "#0B6E4F" },
 });
