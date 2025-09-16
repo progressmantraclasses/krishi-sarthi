@@ -45,10 +45,12 @@ export default function PestScreen() {
     setLoading(true);
     try {
       const prompt = `
-You are an expert agricultural pest control advisor for Indian farmers. 
-Analyze the following pest/crop query: "${query}"
+You are an expert agricultural pest control advisor for Indian farmers.
+The user query is: "${query}".
+Detect the language of this query and reply in the same language.
+Use simple, farmer-friendly language suitable for local farmers.
 
-Please provide detailed advice covering:
+Provide detailed advice covering:
 1. Pest/Disease Identification (if applicable)
 2. Symptoms to look for
 3. Organic/Natural control methods
@@ -56,8 +58,9 @@ Please provide detailed advice covering:
 5. Prevention strategies
 6. Best practices for application
 
-Keep the language simple and practical for farmers. Provide specific product names available in India when possible.
-      `;
+Provide output in the same language as the input. Do NOT reply in English if the input is not English.
+`;
+
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -192,9 +195,10 @@ Keep the language simple and practical for farmers. Provide specific product nam
 
       const prompt = `
 You are an expert agricultural pest and disease diagnosis specialist for Indian farmers.
+Detect the language of this image-related query and reply in the same language.
+Use simple, farmer-friendly language suitable for local farmers.
 
 Analyze this crop/pest image and provide:
-
 1. Crop Type
 2. Pest/Disease Identification
 3. Severity Level
@@ -202,7 +206,7 @@ Analyze this crop/pest image and provide:
 5. Treatment Options (Organic + Chemical with Indian product names)
 6. Prevention
 7. Urgency
-      `;
+`;
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -286,31 +290,31 @@ Analyze this crop/pest image and provide:
    * Speak the advice using text-to-speech (splits into 4000 char chunks)
    */
   const speakAdvice = (text: string): void => {
-    setIsListening(true);
+  setIsListening(true);
 
-    const chunkSize = 4000;
-    const chunks: string[] = [];
+  const chunkSize = 4000;
+  const chunks: string[] = [];
 
-    for (let i = 0; i < text.length; i += chunkSize) {
-      chunks.push(text.substring(i, i + chunkSize));
+  for (let i = 0; i < text.length; i += chunkSize) {
+    chunks.push(text.substring(i, i + chunkSize));
+  }
+
+  const speakChunks = (index: number) => {
+    if (index >= chunks.length) {
+      setIsListening(false);
+      return;
     }
-
-    const speakChunks = (index: number) => {
-      if (index >= chunks.length) {
-        setIsListening(false);
-        return;
-      }
-      Speech.speak(chunks[index], {
-        language: "en-IN",
-        rate: 0.8,
-        pitch: 1.0,
-        onDone: () => speakChunks(index + 1),
-        onError: () => setIsListening(false),
-      });
-    };
-
-    speakChunks(0);
+    Speech.speak(chunks[index], {
+      rate: 0.8,
+      pitch: 1.0,
+      onDone: () => speakChunks(index + 1),
+      onError: () => setIsListening(false),
+    });
   };
+
+  speakChunks(0);
+};
+
 
   const stopSpeech = (): void => {
     Speech.stop();

@@ -47,18 +47,21 @@ export const fetchWeatherData = async (latitude: number, longitude: number) => {
   const API_KEY = "471a72366218898d101149ddd12bba91";
 
   try {
+    // Current weather
     const weatherRes = await fetch(
       `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric`
     );
     if (!weatherRes.ok) throw new Error(`Weather API failed: ${weatherRes.status}`);
     const weatherData: WeatherData = await weatherRes.json();
 
+    // Forecast
     const forecastRes = await fetch(
       `https://api.openweathermap.org/data/2.5/forecast?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric`
     );
     if (!forecastRes.ok) throw new Error(`Forecast API failed: ${forecastRes.status}`);
     const forecastData = await forecastRes.json();
 
+    // Simplified daily forecast (next 7 days)
     const forecast: ForecastData[] = forecastData.list
       .filter((_: any, index: number) => index % 8 === 0)
       .slice(0, 7);
@@ -70,12 +73,12 @@ export const fetchWeatherData = async (latitude: number, longitude: number) => {
   }
 };
 
-// ----- Gemini Advice / Farming Guidance -----
+// ----- Gemini 2.0 Flash: Village-focused Farming Advice -----
 export const fetchGeminiAdvice = async (
   locationName: string,
   weatherCondition: string
 ): Promise<GeminiResult> => {
-  const GEMINI_API_KEY = "AIzaSyA3sB8PMnM26UiCuHOPSbXEXFaKtQ7hSf4"; // replace with your key
+  const GEMINI_API_KEY = "AIzaSyA3sB8PMnM26UiCuHOPSbXEXFaKtQ7hSf4"; // keep as is
 
   try {
     const prompt = `
@@ -87,29 +90,30 @@ Provide:
 Format: NEWS: [news] | ADVICE: [advice]`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          temperature: 0.7,
+          candidate_count: 1,
+        }),
       }
     );
 
-    if (!response.ok) {
-      throw new Error(`Gemini API failed: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`Gemini API failed: ${response.status}`);
     const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!content) {
       return { news: "No news available.", advice: "Monitor weather and pests carefully." };
     }
 
     const [newsContent, adviceContent] = content.split(" | ");
     return {
-      news: newsContent?.replace("NEWS: ", "") || "No news available.",
-      advice: adviceContent?.replace("ADVICE: ", "") || "Monitor weather and pests carefully.",
+      news: newsContent?.replace("NEWS: ", "").trim() || "No news available.",
+      advice: adviceContent?.replace("ADVICE: ", "").trim() || "Monitor weather and pests carefully.",
     };
   } catch (error) {
     console.error("Gemini advice error:", error);

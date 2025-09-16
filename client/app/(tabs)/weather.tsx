@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Keyboard,
 } from "react-native";
 
 import {
@@ -29,10 +30,21 @@ export default function WeatherScreen() {
   const [news, setNews] = useState("");
   const [advice, setAdvice] = useState("");
   const [searchText, setSearchText] = useState("");
-  const [villageResults, setVillageResults] = useState<Array<{ name: string; state?: string; lat: number; lon: number }>>([]);
-  const [selectedVillage, setSelectedVillage] = useState<{ name: string; lat: number; lon: number } | null>(null);
+  const [villageResults, setVillageResults] = useState<
+    Array<{ name: string; state?: string; lat: number; lon: number }>
+  >([]);
+  const [selectedVillage, setSelectedVillage] = useState<{
+    name: string;
+    lat: number;
+    lon: number;
+  } | null>(null);
 
-  // Load weather by GPS
+  // Auto-load weather for current location
+  useEffect(() => {
+    loadWeatherByLocation();
+  }, []);
+
+  // Fetch weather by GPS
   const loadWeatherByLocation = async () => {
     setLoading(true);
     try {
@@ -42,8 +54,8 @@ export default function WeatherScreen() {
       setForecast(forecast);
 
       const gemini = await fetchGeminiAdvice(current.name, current.weather[0].description);
-      setNews(gemini.news);
-      setAdvice(gemini.advice);
+      setNews(gemini.news?.trim() || "");
+      setAdvice(gemini.advice?.trim() || "");
     } catch (error) {
       Alert.alert("Error", (error as Error).message);
     } finally {
@@ -61,7 +73,9 @@ export default function WeatherScreen() {
 
     try {
       const res = await fetch(
-        `http://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)},IN&limit=10&appid=${OWM_API_KEY}`
+        `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(
+          query
+        )},IN&limit=10&appid=${OWM_API_KEY}`
       );
       const data = await res.json();
       setVillageResults(
@@ -72,8 +86,9 @@ export default function WeatherScreen() {
     }
   };
 
-  // Fetch weather for selected village
+  // Handle village selection
   const handleVillageSelect = async (village: { name: string; lat: number; lon: number }) => {
+    Keyboard.dismiss();
     setSelectedVillage(village);
     setSearchText(village.name);
     setVillageResults([]);
@@ -84,8 +99,8 @@ export default function WeatherScreen() {
       setForecast(forecast);
 
       const gemini = await fetchGeminiAdvice(current.name, current.weather[0].description);
-      setNews(gemini.news);
-      setAdvice(gemini.advice);
+      setNews(gemini.news?.trim() || "");
+      setAdvice(gemini.advice?.trim() || "");
     } catch (err) {
       Alert.alert("Error", "Could not fetch weather for this village");
     } finally {
@@ -93,16 +108,28 @@ export default function WeatherScreen() {
     }
   };
 
+  // Highlight advice with emojis
+  const highlightAdvice = (text: string) => {
+    if (/pest/i.test(text)) return "🚨 " + text;
+    if (/rain|storm|flood/i.test(text)) return "🌧️ " + text;
+    return "🌱 " + text;
+  };
+
+  // Render daily forecast item
   const renderForecastItem = ({ item }: { item: ForecastData }) => (
     <View style={styles.forecastCard}>
       <Text>{new Date(item.dt * 1000).toLocaleDateString("en", { weekday: "short" })}</Text>
-      <Text>{getWeatherEmoji(item.weather[0].main)}</Text>
+      <Text style={{ fontSize: 28 }}>{getWeatherEmoji(item.weather[0].main)}</Text>
       <Text>{Math.round(item.main.temp)}°C</Text>
     </View>
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ paddingBottom: 30 }}
+    >
       {/* Current Location */}
       <TouchableOpacity style={styles.locationBtn} onPress={loadWeatherByLocation}>
         <Text style={styles.locationBtnText}>📍 Current Location</Text>
@@ -115,6 +142,7 @@ export default function WeatherScreen() {
           placeholder="Search village"
           value={searchText}
           onChangeText={searchVillage}
+          editable={!loading}
         />
         {villageResults.length > 0 && (
           <View style={styles.dropdown}>
@@ -124,7 +152,9 @@ export default function WeatherScreen() {
                 style={styles.dropdownItem}
                 onPress={() => handleVillageSelect(village)}
               >
-                <Text>{village.name} {village.state ? `(${village.state})` : ""}</Text>
+                <Text>
+                  {village.name} {village.state ? `(${village.state})` : ""}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -156,7 +186,7 @@ export default function WeatherScreen() {
 
           <View style={styles.adviceContainer}>
             <Text style={styles.adviceTitle}>🌱 Farming Advice</Text>
-            <Text>{advice}</Text>
+            <Text>{highlightAdvice(advice)}</Text>
           </View>
         </View>
       )}
@@ -170,10 +200,18 @@ const styles = StyleSheet.create({
   locationBtnText: { fontSize: 16, fontWeight: "600", textAlign: "center" },
   searchContainer: { marginBottom: 20, position: "relative" },
   input: { backgroundColor: "#f0f0f0", padding: 12, borderRadius: 25, fontSize: 16 },
-  dropdown: { position: "absolute", top: 50, left: 0, right: 0, backgroundColor: "#fff", borderRadius: 10, zIndex: 10, maxHeight: 200 },
+  dropdown: {
+    position: "absolute",
+    top: 50,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    zIndex: 1000,
+    maxHeight: 200,
+    elevation: 5,
+  },
   dropdownItem: { padding: 10, borderBottomWidth: 0.5, borderBottomColor: "#ccc" },
-  goBtn: { backgroundColor: "#4CAF50", padding: 12, borderRadius: 25, marginBottom: 10, marginTop: 10 },
-  goText: { color: "#fff", textAlign: "center", fontWeight: "bold" },
   weatherContainer: { marginTop: 10 },
   cityName: { fontSize: 28, fontWeight: "bold", textAlign: "center" },
   weatherEmoji: { fontSize: 80, textAlign: "center", marginVertical: 10 },
