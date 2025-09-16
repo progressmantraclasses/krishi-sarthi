@@ -46,82 +46,73 @@ export const getCurrentLocation = async () => {
 export const fetchWeatherData = async (latitude: number, longitude: number) => {
   const API_KEY = "471a72366218898d101149ddd12bba91";
 
-  const weatherRes = await fetch(
-    `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric`
-  );
-  const weatherData: WeatherData = await weatherRes.json();
+  try {
+    const weatherRes = await fetch(
+      `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric`
+    );
+    if (!weatherRes.ok) throw new Error(`Weather API failed: ${weatherRes.status}`);
+    const weatherData: WeatherData = await weatherRes.json();
 
-  const forecastRes = await fetch(
-    `https://api.openweathermap.org/data/2.5/forecast?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric`
-  );
-  const forecastData = await forecastRes.json();
+    const forecastRes = await fetch(
+      `https://api.openweathermap.org/data/2.5/forecast?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric`
+    );
+    if (!forecastRes.ok) throw new Error(`Forecast API failed: ${forecastRes.status}`);
+    const forecastData = await forecastRes.json();
 
-  const forecast: ForecastData[] = forecastData.list
-    .filter((_: any, index: number) => index % 8 === 0)
-    .slice(0, 7);
+    const forecast: ForecastData[] = forecastData.list
+      .filter((_: any, index: number) => index % 8 === 0)
+      .slice(0, 7);
 
-  return { current: weatherData, forecast };
+    return { current: weatherData, forecast };
+  } catch (error) {
+    console.error("Weather fetch error:", error);
+    throw new Error("Failed to fetch weather data.");
+  }
 };
 
-// ----- Gemini Advice / Pest Alerts -----
+// ----- Gemini Advice / Farming Guidance -----
 export const fetchGeminiAdvice = async (
   locationName: string,
-  weatherData: WeatherData
+  weatherCondition: string
 ): Promise<GeminiResult> => {
-  const GEMINI_API_KEY = "AIzaSyDF3KAQn3gSShNo-TJp47BTw4hELH-tA64";
+  const GEMINI_API_KEY = "AIzaSyA3sB8PMnM26UiCuHOPSbXEXFaKtQ7hSf4"; // replace with your key
 
   try {
-    // Prepare weather summary
-    const weatherMain = weatherData.weather[0]?.main || "Unknown";
-    const weatherDesc = weatherData.weather[0]?.description || "";
-    const temp = weatherData.main.temp;
-    const humidity = weatherData.main.humidity;
-    const windSpeed = weatherData.wind.speed;
-
     const prompt = `
-You are an expert agricultural advisor for Indian villages.
-The farmer is in ${locationName}, India. Current weather conditions:
-- Weather: ${weatherMain} (${weatherDesc})
-- Temperature: ${temp}°C
-- Humidity: ${humidity}%
-- Wind Speed: ${windSpeed} m/s
-
+Village-focused agricultural info for ${locationName}, India.
+Current weather: ${weatherCondition}.
 Provide:
-1. Recent farming or pest alerts (2-3 lines)
-2. Practical village-friendly farming advice (2-3 lines)
-Focus on crop protection, pest prevention, and actionable guidance for farmers.
-Format: NEWS: [news & pest info] | ADVICE: [advice content]
-    `;
+1. Recent farming/pest alerts (2-3 lines)
+2. Practical farming advice (2-3 lines)
+Format: NEWS: [news] | ADVICE: [advice]`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, topP: 0.8, maxOutputTokens: 400 },
-        }),
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
       }
     );
 
-    const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    if (content.includes("NEWS:") && content.includes("ADVICE:")) {
-      const [newsContent, adviceContent] = content.split(" | ");
-      return {
-        news: newsContent.replace("NEWS: ", "").trim(),
-        advice: adviceContent.replace("ADVICE: ", "").trim(),
-      };
-    } else {
-      return {
-        news: "No recent news available.",
-        advice: "Monitor weather and pests carefully.",
-      };
+    if (!response.ok) {
+      throw new Error(`Gemini API failed: ${response.status}`);
     }
+
+    const data = await response.json();
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!content) {
+      return { news: "No news available.", advice: "Monitor weather and pests carefully." };
+    }
+
+    const [newsContent, adviceContent] = content.split(" | ");
+    return {
+      news: newsContent?.replace("NEWS: ", "") || "No news available.",
+      advice: adviceContent?.replace("ADVICE: ", "") || "Monitor weather and pests carefully.",
+    };
   } catch (error) {
-    console.error(error);
-    return { news: "No recent news available.", advice: "Monitor weather and pests carefully." };
+    console.error("Gemini advice error:", error);
+    return { news: "No news available.", advice: "Monitor weather and pests carefully." };
   }
 };

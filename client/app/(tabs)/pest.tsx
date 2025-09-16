@@ -31,7 +31,7 @@ export default function PestScreen() {
   const [loading, setLoading] = useState<boolean>(false);
   const [isListening, setIsListening] = useState<boolean>(false);
 
-  const GEMINI_API_KEY = "YOUR_API_KEY_HERE"; // Replace with your API key
+  const GEMINI_API_KEY = "AIzaSyA3sB8PMnM26UiCuHOPSbXEXFaKtQ7hSf4"; // Replace with your API key
 
   /**
    * Generate pest advice using text query
@@ -283,17 +283,33 @@ Analyze this crop/pest image and provide:
   };
 
   /**
-   * Speak the advice using text-to-speech
+   * Speak the advice using text-to-speech (splits into 4000 char chunks)
    */
   const speakAdvice = (text: string): void => {
     setIsListening(true);
-    Speech.speak(text, {
-      language: "en-IN",
-      rate: 0.8,
-      pitch: 1.0,
-      onDone: () => setIsListening(false),
-      onError: () => setIsListening(false),
-    });
+
+    const chunkSize = 4000;
+    const chunks: string[] = [];
+
+    for (let i = 0; i < text.length; i += chunkSize) {
+      chunks.push(text.substring(i, i + chunkSize));
+    }
+
+    const speakChunks = (index: number) => {
+      if (index >= chunks.length) {
+        setIsListening(false);
+        return;
+      }
+      Speech.speak(chunks[index], {
+        language: "en-IN",
+        rate: 0.8,
+        pitch: 1.0,
+        onDone: () => speakChunks(index + 1),
+        onError: () => setIsListening(false),
+      });
+    };
+
+    speakChunks(0);
   };
 
   const stopSpeech = (): void => {
