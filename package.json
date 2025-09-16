@@ -5,13 +5,20 @@
     "dev": "nodemon server/server.js"
   },
   "dependencies": {
+    "@google/genai": "^1.19.0",
+    "@google/generative-ai": "^0.24.1",
+    "@types/react-native-linear-gradient": "^2.3.1",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "expo": "^54.0.7",
+    "expo-image-picker": "^17.0.8",
+    "expo-linear-gradient": "~15.0.7",
+    "expo-location": "~19.0.7",
+    "expo-speech": "^14.0.7",
     "express": "^5.1.0",
     "mongoose": "^8.18.1",
-    "expo-location": "~19.0.7"
+    "react-native-voice": "^0.3.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

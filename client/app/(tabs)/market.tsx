@@ -1,39 +1,103 @@
-// client/app/(tabs)/market.tsx
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
-import axios from "@/lib/api";
-// import { Card } from "react-native-paper";
-import Card from "../../components/Card";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  FlatList,
+  ActivityIndicator,
+} from "react-native";
+import { fetchAllMarketRates, MarketRecord } from "../../lib/market";
 
-export default function Market() {
-  const [prices, setPrices] = useState<any>(null);
-  const load = async() => {
-    const r = await axios.get("/misc/market-prices");
-    setPrices(r.data.prices);
+export default function MarketSearchScreen() {
+  const [query, setQuery] = useState("");
+  const [allData, setAllData] = useState<MarketRecord[]>([]);
+  const [filtered, setFiltered] = useState<MarketRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      const data = await fetchAllMarketRates();
+      setAllData(data);
+      setFiltered(data);
+      setLoading(false);
+    };
+    loadData();
+  }, []);
+
+  const handleSearch = (text: string) => {
+    setQuery(text);
+    if (!text) {
+      setFiltered(allData);
+      return;
+    }
+    const lower = text.toLowerCase();
+    const results = allData.filter(
+      (item) =>
+        item.state.toLowerCase().includes(lower) ||
+        item.district.toLowerCase().includes(lower) ||
+        item.market.toLowerCase().includes(lower) ||
+        item.commodity.toLowerCase().includes(lower)
+    );
+    setFiltered(results);
   };
-  useEffect(()=>{ load(); },[]);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="green" />
+      </View>
+    );
+  }
+
   return (
-    <View style={s.root}>
-      <Card>
-        <Text style={s.title}>Market Prices</Text>
-        {!prices ? <Text>Loading...</Text> : (
-          <FlatList
-            data={Object.entries(prices)}
-            keyExtractor={([k])=>k}
-            renderItem={({item})=>(
-              <View style={s.row}><Text style={{fontWeight:"700"}}>{item[0]}</Text><Text>{item[0]}</Text></View>
-            )}
-          />
+    <View style={styles.container}>
+      <TextInput
+        style={styles.input}
+        placeholder="Search by State, District, Market, Commodity..."
+        value={query}
+        onChangeText={handleSearch}
+      />
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(_, i) => i.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <Text style={styles.commodity}>
+              {item.commodity} ({item.variety})
+            </Text>
+            <Text>State: {item.state}</Text>
+            <Text>District: {item.district}</Text>
+            <Text>Market: {item.market}</Text>
+            <Text>Grade: {item.grade}</Text>
+            <Text>
+              Min: ₹{item.minPrice} | Max: ₹{item.maxPrice} | Modal: ₹
+              {item.modalPrice}
+            </Text>
+            <Text>Date: {item.date}</Text>
+          </View>
         )}
-        <TouchableOpacity onPress={load} style={s.refresh}><Text style={{color:"#fff"}}>Refresh</Text></TouchableOpacity>
-      </Card>
+      />
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  root:{ flex:1, padding:12 },
-  title:{ fontWeight:"700", fontSize:18, marginBottom:8 },
-  row:{ flexDirection:"row", justifyContent:"space-between", paddingVertical:8 },
-  refresh:{ marginTop:12, backgroundColor:"#0B6E4F", padding:10, borderRadius:8, alignItems:"center" }
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 15, backgroundColor: "#fff" },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  card: {
+    backgroundColor: "#e0f7fa",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  commodity: { fontWeight: "bold", fontSize: 16 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
 });
