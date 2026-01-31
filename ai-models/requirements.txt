@@ -1,0 +1,12 @@
+Flask==2.3.3
+Flask-CORS==4.0.0
+google-generativeai==0.3.2
+googletrans==4.0.0rc1
+requests==2.31.0
+Pillow==10.0.1
+sentence-transformers==2.2.2
+numpy==1.24.3
+beautifulsoup4==4.12.2
+sqlite3  # Built into Python
+pickle  # Built into Python
+threading  # Built into Python
